@@ -12,6 +12,15 @@ Your Personal Karaoke Laboratory - AI-powered karaoke practice platform built wi
 - 📋 **Playlists** - Create and manage playlists
 - ⚙️ **Settings** - Customize your experience
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="./screenshots/home.png" alt="Home Page" width="100%"></td>
+    <td><img src="./screenshots/search.png" alt="Search Page" width="100%"></td>
+  </tr>
+</table>
+
 ## Tech Stack
 
 - **SvelteKit 2.0** - Full-stack framework
