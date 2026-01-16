@@ -13,7 +13,9 @@
   let { videoId, autoplay = false, onEnded, onPlay, onPause, canPlay }: Props = $props();
   
   let playerId = $derived(`youtube-player-${videoId}-${Math.random().toString(36).substr(2, 9)}`);
-  let player = $state<YT.Player | null>(null);
+  // Store player as plain variable outside reactivity to avoid proxy issues
+  let player: YT.Player | null = null;
+  let playerReady = $state(false); // Track when player is fully initialized
   let iframeRef = $state<HTMLIFrameElement | null>(null);
   let containerRef = $state<HTMLDivElement | null>(null);
   let apiReady = $state(false);
@@ -21,7 +23,21 @@
   
   // Expose control methods
   export async function play() {
-    if (!player) return;
+    if (!player) {
+      return;
+    }
+    
+    // Wait for player to be ready if not yet ready
+    if (!playerReady) {
+      // Wait up to 3 seconds for player to be ready
+      const startTime = Date.now();
+      while (!playerReady && (Date.now() - startTime) < 3000) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (!playerReady) {
+        return;
+      }
+    }
     
     // Check if playback is allowed
     if (canPlay) {
@@ -88,10 +104,12 @@
   });
   
   function initPlayer() {
-    if (!iframeRef || !apiReady || !window.YT || !window.YT.Player) return;
+    if (!apiReady || !window.YT || !window.YT.Player) return;
     
     try {
-      player = new window.YT.Player(iframeRef.id, {
+      playerReady = false;
+      // Pass the div ID - YouTube API will replace it with an iframe
+      player = new window.YT.Player(playerId, {
         videoId: videoId,
         playerVars: {
           autoplay: autoplay ? 1 : 0,
@@ -101,6 +119,11 @@
           enablejsapi: 1
         },
         events: {
+          onReady: (event: { target: YT.Player }) => {
+            // Use event.target as the actual player object with API methods
+            player = event.target;
+            playerReady = true;
+          },
           onStateChange: (event: YT.OnStateChangeEvent) => {
             // YT.PlayerState.ENDED = 0, PLAYING = 1, PAUSED = 2
             if (event.data === 0) {
@@ -139,14 +162,9 @@
   bind:this={containerRef}
   class="relative w-full h-full bg-black"
 >
-  <iframe
-    bind:this={iframeRef}
+  <!-- Let YouTube IFrame API create the iframe, don't pre-create it -->
+  <div
     id={playerId}
-    src="https://www.youtube.com/embed/{videoId}?autoplay={autoplay ? 1 : 0}&controls=0&rel=0&modestbranding=1&enablejsapi=1"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-    allowfullscreen
     class="w-full h-full"
-    title="YouTube video player"
-  ></iframe>
+  ></div>
 </div>

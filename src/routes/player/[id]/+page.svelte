@@ -24,6 +24,7 @@
   let recordingTimer = $state<ReturnType<typeof setInterval> | null>(null);
   let recordingChunks = $state<Blob[]>([]);
   let recordingReady = $state(false);
+  let recordingFailed = $state(false); // Track if recording preparation failed
   
   // Capture song info when recording starts (preserve across queue changes)
   let recordingSongName = $state<string>('');
@@ -67,14 +68,23 @@
     // If recording is disabled, always return true (ready)
     if (!recordingEnabled) {
       recordingReady = true;
+      recordingFailed = false;
+      recordingDuration = 0; // Reset UI state
+      return true;
+    }
+    
+    // If already prepared successfully and not in a retry state, return true
+    if (recordingReady && !recordingFailed) {
       return true;
     }
     
     // Don't prepare if already recording
     if (isRecording) {
       recordingReady = true;
+      recordingFailed = false;
       return true;
     }
+    
     // Initialize song name if not already captured (backup in case $effect didn't catch it)
     if (currentVideoId && !recordingSongName) {
       const queueItem = $queue.find(item => item.video.id === currentVideoId);
@@ -150,11 +160,14 @@
       };
       
       recordingReady = true;
+      recordingFailed = false;
       return true;
     } catch (err) {
       recordingReady = false;
+      recordingFailed = true; // Mark that preparation failed
       const errorMessage = err instanceof Error ? err.message : '無法準備錄音';
-      alert('無法準備錄音：' + errorMessage);
+      console.error('Recording preparation failed:', errorMessage);
+      // Don't alert - let the video play anyway
       return false;
     }
   }
@@ -169,13 +182,24 @@
         recordingSongName = currentVideo?.title || `錄音 ${new Date().toLocaleString('zh-TW')}`;
       }
       
-      mediaRecorder.start();
-      isRecording = true;
-      recordingDuration = 0;
-      
-      recordingTimer = setInterval(() => {
-        recordingDuration++;
-      }, 1000);
+      // Ensure mediaRecorder is in a state where it can start
+      try {
+        if (mediaRecorder.state === 'inactive') {
+          mediaRecorder.start();
+        } else if (mediaRecorder.state === 'paused') {
+          mediaRecorder.resume();
+        }
+        // If already recording, do nothing
+        
+        isRecording = true;
+        recordingDuration = 0;
+        
+        recordingTimer = setInterval(() => {
+          recordingDuration++;
+        }, 1000);
+      } catch (err) {
+        console.error('Failed to start recording:', err);
+      }
     }
   }
   
@@ -196,7 +220,7 @@
     // The stream will be stopped when component is destroyed
   }
   
-  function handleVideoPlay() {
+  async function handleVideoPlay() {
     isVideoPlaying = true;
     
     // Remove current video from queue when it starts playing
@@ -206,7 +230,25 @@
     }
     
     if (recordingEnabled) {
-      startRecording();
+      // If recording failed before, try to prepare again (user may have granted permission)
+      if (recordingFailed && !recordingReady) {
+        // Reset UI state immediately to show attempt
+        recordingDuration = 0;
+        recordingFailed = false;
+        isRecording = false; // Ensure recording state is reset
+        
+        // Try to prepare recording again
+        await prepareRecording();
+        
+        // If preparation succeeded, start recording (check actual state after await)
+        if (recordingReady && !recordingFailed) {
+          startRecording();
+        }
+      } else if (recordingReady && !recordingFailed) {
+        // Normal path: recording is ready
+        startRecording();
+      }
+      // If still waiting for recording setup, do nothing - wait for prepare to complete
     }
   }
   
@@ -225,13 +267,12 @@
     if (isVideoPlaying) {
       playerRef.pause();
     } else {
-      // Check if recording is ready before playing (if recording is enabled)
+      // Try to prepare recording if recording is enabled and not yet ready
       if (recordingEnabled && !recordingReady) {
-        const ready = await prepareRecording();
-        if (!ready) {
-          return; // Don't play if recording preparation failed
-        }
+        // Try to prepare recording, but allow playback to proceed regardless
+        await prepareRecording();
       }
+      // Always allow playback - recording failure shouldn't block video play
       playerRef.play();
     }
   }
@@ -242,6 +283,16 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
   
+  // Watch for recordingReady to become true after initial mount
+  // and auto-play video if user granted permission
+  let hasAttemptedAutoPlay = $state(false);
+  $effect(() => {
+    if (recordingReady && !recordingFailed && !hasAttemptedAutoPlay && playerRef) {
+      hasAttemptedAutoPlay = true;
+      playerRef.play();
+    }
+  });
+
   // Prepare recording when component mounts (if recording is enabled)
   onMount(async () => {
     if (recordingEnabled) {
@@ -302,7 +353,7 @@
       <YouTubePlayer 
         bind:this={playerRef}
         videoId={currentVideoId}
-        autoplay={recordingReady}
+        autoplay={recordingReady && !recordingFailed}
         onEnded={handleVideoEnded}
         onPlay={handleVideoPlay}
         onPause={handleVideoPause}
@@ -311,8 +362,10 @@
           if (!recordingEnabled) return true;
           // If recording is already ready, allow playback
           if (recordingReady) return true;
-          // Otherwise, prepare recording first
-          return await prepareRecording();
+          // Try to prepare recording, but always allow playback to proceed
+          // (don't block video playback if microphone access is denied)
+          await prepareRecording();
+          return true;
         }}
       />
     {/if}
