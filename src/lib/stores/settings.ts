@@ -8,7 +8,7 @@ const defaultSettings: AppSettings = {
 	language: 'zh-TW',
 	defaultVolume: 70,
 	autoplay: true,
-	searchFilter: 'all',
+	searchFilter: 'karaoke',
 	audioQuality: 128,
 	recordingEnabled: true
 };

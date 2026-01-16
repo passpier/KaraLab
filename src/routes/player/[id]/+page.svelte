@@ -7,11 +7,14 @@
   import { settings } from '$lib/stores/settings';
   import { getAudioDuration } from '$lib/utils/audio';
   import YouTubePlayer from '$lib/components/YouTubePlayer.svelte';
-  import type { QueueItem } from '$lib/types';
+  import type { QueueItem, YouTubeVideo } from '$lib/types';
   
   let playerRef = $state<YouTubePlayer | null>(null);
   
   let currentVideoId = $derived($page.params.id);
+  
+  // Get video info from page state (passed from VideoCard.svelte)
+  let pageStateVideo = $derived(($page.state as any)?.video as YouTubeVideo | undefined);
   
   // Recording state
   let recordingStream = $state<MediaStream | null>(null);
@@ -22,9 +25,8 @@
   let recordingChunks = $state<Blob[]>([]);
   let recordingReady = $state(false);
   
-  // Capture song info when recording starts (before video is removed from queue)
+  // Capture song info when recording starts (preserve across queue changes)
   let recordingSongName = $state<string>('');
-  let recordingSongId = $state<string>('');
   
   // Video playback state
   let isVideoPlaying = $state(false);
@@ -35,11 +37,25 @@
   // Get current video info from queue (may not exist if already removed)
   let currentVideo = $derived($queue.find(item => item.video.id === currentVideoId)?.video);
   
+  // Capture song name from page state (passed from VideoCard) or queue
+  $effect(() => {
+    if (currentVideoId) {
+      // First priority: use video from page state (passed from VideoCard.svelte)
+      if (pageStateVideo?.title) {
+        recordingSongName = pageStateVideo.title;
+      }
+      // Second priority: use video from queue
+      else if (currentVideo?.title) {
+        recordingSongName = currentVideo.title;
+      }
+    }
+  });
+  
   function handleVideoEnded() {
     // Stop recording when video ends
     stopRecording();
     
-    // Auto-play next item in queue (current video was already removed when it started playing)
+    // Auto-play next item in queue
     const nextItem = queue.next() as QueueItem | null;
     if (nextItem?.video?.id) {
       // Navigate to next video in queue
@@ -58,6 +74,15 @@
     if (isRecording) {
       recordingReady = true;
       return true;
+    }
+    // Initialize song name if not already captured (backup in case $effect didn't catch it)
+    if (currentVideoId && !recordingSongName) {
+      const queueItem = $queue.find(item => item.video.id === currentVideoId);
+      if (queueItem?.video) {
+        recordingSongName = queueItem.video.title;
+      } else if (currentVideo) {
+        recordingSongName = currentVideo.title;
+      }
     }
     
     try {
@@ -107,8 +132,8 @@
         if (duration > 0) {
           const recording: import('$lib/types').Recording = {
             id: crypto.randomUUID(),
-            songId: recordingSongId || currentVideoId || '',
-            songName: recordingSongName || currentVideo?.title || `錄音 ${new Date().toLocaleString('zh-TW')}`,
+            songId: currentVideoId || '',
+            songName: recordingSongName || `錄音 ${new Date().toLocaleString('zh-TW')}`,
             audioBlob: blob,
             url: url,
             date: new Date(),
@@ -139,9 +164,10 @@
     if (isRecording || !recordingEnabled) return;
     
     if (mediaRecorder && recordingStream) {
-      // Capture song info before starting recording (in case video is removed from queue)
-      recordingSongName = currentVideo?.title || `錄音 ${new Date().toLocaleString('zh-TW')}`;
-      recordingSongId = currentVideoId || '';
+      // Use already captured song name, or try to get from currentVideo, or use fallback
+      if (!recordingSongName) {
+        recordingSongName = currentVideo?.title || `錄音 ${new Date().toLocaleString('zh-TW')}`;
+      }
       
       mediaRecorder.start();
       isRecording = true;
@@ -172,6 +198,13 @@
   
   function handleVideoPlay() {
     isVideoPlaying = true;
+    
+    // Remove current video from queue when it starts playing
+    const queueItem = $queue.find(item => item.video.id === currentVideoId);
+    if (queueItem) {
+      queue.remove(queueItem.id);
+    }
+    
     if (recordingEnabled) {
       startRecording();
     }

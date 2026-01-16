@@ -17,12 +17,11 @@
   let duration = $derived(formatDuration(video.duration));
   
   function handlePlay() {
-    // Remove current video from queue when starting to play
-    const queueItem = $queue.find(item => item.video.id === video.id);
-    if (queueItem) {
-      queue.remove(queueItem.id);
-    }
-    goto(`/player/${video.id}`);
+    // Convert Proxy to plain object for page state (history.pushState can't clone Proxies)
+    const plainVideo = JSON.parse(JSON.stringify(video));
+    goto(`/player/${video.id}`, { 
+      state: { video: plainVideo } 
+    });
   }
   
   function handleAddToQueue() {

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { queue } from '$lib/stores/queue';
   import { goto } from '$app/navigation';
-  import SongItem from './SongItem.svelte';
   import type { QueueItem } from '$lib/types';
   
   interface Props {
@@ -19,11 +18,6 @@
   }
   
   function handlePlay(id: string) {
-    // Remove video from queue when starting to play
-    const queueItem = $queue.find(item => item.video.id === id);
-    if (queueItem) {
-      queue.remove(queueItem.id);
-    }
     goto(`/player/${id}`);
     // Call the callback to close drawer if provided
     if (onPlay) {
@@ -127,12 +121,31 @@
           ondragleave={handleDragLeave}
           ondrop={(e) => handleDrop(e, index)}
         >
-          <div class="flex-1 min-w-0 overflow-hidden">
-            <SongItem video={item.video} onRemove={handleRemove} onPlay={handlePlay} />
+          <div class="text-gray-400 dark:text-gray-500 cursor-grab active:cursor-grabbing text-xs flex-shrink-0">
+            ⋮⋮
           </div>
           
-          <div class="text-gray-400 dark:text-gray-500 cursor-grab active:cursor-grabbing text-xs">
-            ⋮⋮
+          <div class="flex-1 min-w-0 overflow-hidden">
+            <div class="flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition min-w-0">
+              <div class="flex-1 min-w-0 overflow-hidden">
+                <h4 class="font-medium truncate text-sm">{item.video.title}</h4>
+              </div>
+              
+              <div class="flex gap-2 flex-shrink-0">
+                <button 
+                  class="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary/90 transition whitespace-nowrap"
+                  onclick={() => handlePlay(item.video.id)}
+                >
+                ⏵
+                </button>
+                <button 
+                  class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition whitespace-nowrap"
+                  onclick={() => handleRemove(item.video.id)}
+                >
+                ×
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       {/each}

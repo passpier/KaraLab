@@ -21,19 +21,20 @@
 
       const params = new URLSearchParams({
         q: filter === 'karaoke' ? `${searchQuery} karaoke -cover` : searchQuery,
-        type: 'video',
-        videoCategoryId: '10',
-        maxResults: '25',
-        part: 'snippet'
+        filter: filter, // Send filter parameter to API
+        maxResults: '25'
       });
       
       const response = await fetch(`/api/youtube/search?${params}`);
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
+        // If API returned an error object, use its message
+        const errorMessage = data.error || response.statusText || '搜尋失敗';
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
       videos = data.videos || [];
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '搜尋失敗，請稍後再試';

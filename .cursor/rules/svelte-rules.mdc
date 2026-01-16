@@ -1,6 +1,6 @@
 ---
 name: svelte-rules
-description: This is a new rule
+description: Expert Svelte 5 and SvelteKit development guidelines. Apply when working with: .svelte components, SvelteKit routes and layouts, Svelte 5 runes ($state, $derived, $effect, $props), TypeScript in Svelte projects, or any SvelteKit application structure (src/routes/, src/lib/, svelte.config.js)
 ---
 
 ## Persona
@@ -389,6 +389,4 @@ sveltekit-app/
 
 - Maintain up-to-date README with setup instructions
 - Document all environment variables in `.env.example`
-- Include component usage examples in Storybook or similar
 - Write inline comments for complex logic only
-- Keep CHANGELOG.md for version tracking

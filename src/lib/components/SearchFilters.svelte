@@ -16,7 +16,7 @@
   {#each filterOptions as option}
     <button
       class="px-4 py-2 rounded-lg transition {$settings.searchFilter === option.value ? 'bg-primary text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-      on:click={() => handleFilterChange(option.value)}
+      onclick={() => handleFilterChange(option.value)}
     >
       {option.label}
     </button>
