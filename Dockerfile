@@ -15,6 +15,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Build the application
+RUN pnpm svelte-kit sync
 RUN pnpm build
 RUN pnpm prune --prod
 

@@ -5,7 +5,7 @@
   import { queue } from '$lib/stores/queue';
   import { recordings } from '$lib/stores/recordings';
   import { settings } from '$lib/stores/settings';
-  import { getAudioDuration } from '$lib/utils/audio';
+  import { getAudioDuration, getMicrophoneStream } from '$lib/utils/audio';
   import YouTubePlayer from '$lib/components/YouTubePlayer.svelte';
   import AudioVisualizer from '$lib/components/AudioVisualizer.svelte';
   import type { QueueItem, YouTubeVideo } from '$lib/types';
@@ -112,7 +112,6 @@
     }
     
     try {
-      const { getMicrophoneStream } = await import('$lib/utils/audio');
       recordingStream = await getMicrophoneStream();
       recordingChunks = [];
       
