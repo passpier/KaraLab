@@ -34,6 +34,7 @@ export interface Recording {
 	songName: string;
 	audioBlob: Blob;
 	url: string;
+	mimeType?: string;
 	date: Date;
 	duration: number;
 	aiEvaluation: AIEvaluation | null;

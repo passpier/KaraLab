@@ -5,7 +5,7 @@
   import { queue } from '$lib/stores/queue';
   import { recordings } from '$lib/stores/recordings';
   import { settings } from '$lib/stores/settings';
-  import { getAudioDuration, getMicrophoneStream } from '$lib/utils/audio';
+  import { createMediaRecorder, getAudioDuration, getMicrophoneStream, getSupportedAudioMimeType } from '$lib/utils/audio';
   import YouTubePlayer from '$lib/components/YouTubePlayer.svelte';
   import AudioVisualizer from '$lib/components/AudioVisualizer.svelte';
   import type { QueueItem, YouTubeVideo } from '$lib/types';
@@ -26,6 +26,8 @@
   let recordingChunks = $state<Blob[]>([]);
   let recordingReady = $state(false);
   let recordingFailed = $state(false); // Track if recording preparation failed
+  let recordingErrorText = $state<string | null>(null);
+  let recordingMimeType = $state<string>('');
   
   // Capture song info when recording starts (preserve across queue changes)
   let recordingSongName = $state<string>('');
@@ -35,6 +37,7 @@
 
   let micStatusText = $derived.by(() => {
     if (!recordingEnabled) return '麥克風已關閉';
+    if (recordingErrorText) return recordingErrorText;
     if (recordingFailed) return '麥克風無法啟用';
     if (!recordingReady) return '正在啟用麥克風';
     if (isVideoPlaying && isRecording) return '麥克風運作中';
@@ -46,6 +49,17 @@
     if (recordingFailed) return 'text-red-600 dark:text-red-400';
     if (isRecording) return 'text-emerald-600 dark:text-emerald-400';
     return 'text-gray-600 dark:text-gray-300';
+  });
+
+  let recordingHintText = $derived.by(() => {
+    if (!recordingErrorText) return '';
+    if (recordingErrorText.includes('權限')) {
+      return '請在瀏覽器設定允許麥克風';
+    }
+    if (recordingErrorText.includes('限制') || recordingErrorText.includes('不支援')) {
+      return '建議使用 Safari 或 Chrome 開啟';
+    }
+    return '';
   });
   
   // Check if recording is enabled
@@ -111,13 +125,30 @@
       }
     }
     
+    recordingErrorText = null;
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      recordingReady = false;
+      recordingFailed = true;
+      recordingErrorText = '瀏覽器不支援麥克風';
+      return false;
+    }
+
+    if (typeof MediaRecorder === 'undefined') {
+      recordingReady = false;
+      recordingFailed = true;
+      recordingErrorText = '瀏覽器不支援錄音';
+      return false;
+    }
+
+    const supportedMimeType = getSupportedAudioMimeType();
+
     try {
       recordingStream = await getMicrophoneStream();
       recordingChunks = [];
       
-      mediaRecorder = new MediaRecorder(recordingStream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      mediaRecorder = createMediaRecorder(recordingStream);
+      recordingMimeType = mediaRecorder.mimeType || supportedMimeType || 'audio/webm';
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -129,7 +160,7 @@
         // Capture the duration before it might be reset
         const savedDuration = recordingDuration;
         
-        const blob = new Blob(recordingChunks, { type: 'audio/webm' });
+        const blob = new Blob(recordingChunks, { type: recordingMimeType || 'audio/webm' });
         
         // Only save if there's actual recording data
         if (blob.size === 0 || recordingChunks.length === 0) {
@@ -161,6 +192,7 @@
             songName: recordingSongName || `錄音 ${new Date().toLocaleString('zh-TW')}`,
             audioBlob: blob,
             url: url,
+            mimeType: recordingMimeType,
             date: new Date(),
             duration: duration,
             aiEvaluation: null
@@ -180,7 +212,31 @@
     } catch (err) {
       recordingReady = false;
       recordingFailed = true; // Mark that preparation failed
-      const errorMessage = err instanceof Error ? err.message : '無法準備錄音';
+      let errorMessage = '無法準備錄音';
+      if (err instanceof DOMException) {
+        switch (err.name) {
+          case 'NotAllowedError':
+            errorMessage = '麥克風權限被拒絕';
+            break;
+          case 'NotFoundError':
+            errorMessage = '找不到麥克風';
+            break;
+          case 'NotReadableError':
+            errorMessage = '麥克風被其他應用占用';
+            break;
+          case 'NotSupportedError':
+            errorMessage = '瀏覽器不支援錄音';
+            break;
+          case 'SecurityError':
+            errorMessage = '此瀏覽器限制麥克風';
+            break;
+          default:
+            errorMessage = err.message || errorMessage;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message || errorMessage;
+      }
+      recordingErrorText = errorMessage;
       console.error('Recording preparation failed:', errorMessage);
       // Don't alert - let the video play anyway
       return false;
@@ -416,9 +472,16 @@
             responsive={true}
           />
         </div>
-        <span class={`text-xs whitespace-nowrap shrink-0 ${micStatusTone}`} role="status" aria-live="polite">
-          {micStatusText}
-        </span>
+        <div class="flex flex-col items-end shrink-0">
+          <span class={`text-xs whitespace-nowrap ${micStatusTone}`} role="status" aria-live="polite">
+            {micStatusText}
+          </span>
+          {#if recordingHintText}
+            <span class="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              {recordingHintText}
+            </span>
+          {/if}
+        </div>
       </div>
     </div>
   </div>

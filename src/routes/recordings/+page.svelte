@@ -70,7 +70,11 @@
           <!-- Audio Player -->
           {#if recording.url}
             <audio controls class="w-full mb-4">
-              <source src={recording.url} type="audio/webm" />
+              {#if recording.mimeType}
+                <source src={recording.url} type={recording.mimeType} />
+              {:else}
+                <source src={recording.url} />
+              {/if}
               您的瀏覽器不支援音訊播放
             </audio>
           {/if}

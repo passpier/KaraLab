@@ -60,6 +60,7 @@ function createRecordingsStore(): RecordingsStore {
 					songId: r.songId,
 					songName: r.songName,
 					url: r.url,
+					mimeType: r.mimeType,
 					date: r.date.toISOString(),
 					duration: r.duration,
 					aiEvaluation: r.aiEvaluation

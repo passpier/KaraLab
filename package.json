@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "deploy:gcp": "gcloud builds submit --tag gcr.io/karalab/karalab:latest && gcloud run deploy karalab --image gcr.io/karalab/karalab:latest --region asia-east1 --memory 512Mi --max-instances 10"
   },
   "devDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.55.1",

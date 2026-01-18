@@ -52,10 +52,32 @@ export function createAudioAnalyzer(
 /**
  * Create a MediaRecorder instance for recording audio
  */
+export function getSupportedAudioMimeType(): string | null {
+	if (typeof MediaRecorder === 'undefined') return null;
+	if (typeof MediaRecorder.isTypeSupported !== 'function') return null;
+
+	const candidates = [
+		'audio/webm;codecs=opus',
+		'audio/webm',
+		'audio/mp4;codecs=mp4a.40.2',
+		'audio/mp4',
+		'audio/aac'
+	];
+
+	for (const mimeType of candidates) {
+		if (MediaRecorder.isTypeSupported(mimeType)) {
+			return mimeType;
+		}
+	}
+
+	return null;
+}
+
 export function createMediaRecorder(stream: MediaStream, maxDuration: number = 300): MediaRecorder {
-	const mediaRecorder = new MediaRecorder(stream, {
-		mimeType: 'audio/webm;codecs=opus'
-	});
+	const mimeType = getSupportedAudioMimeType();
+	const mediaRecorder = mimeType
+		? new MediaRecorder(stream, { mimeType })
+		: new MediaRecorder(stream);
 	
 	// Auto-stop after max duration
 	setTimeout(() => {
