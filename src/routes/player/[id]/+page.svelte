@@ -7,6 +7,7 @@
   import { settings } from '$lib/stores/settings';
   import { getAudioDuration } from '$lib/utils/audio';
   import YouTubePlayer from '$lib/components/YouTubePlayer.svelte';
+  import AudioVisualizer from '$lib/components/AudioVisualizer.svelte';
   import type { QueueItem, YouTubeVideo } from '$lib/types';
   
   let playerRef = $state<YouTubePlayer | null>(null);
@@ -31,6 +32,21 @@
   
   // Video playback state
   let isVideoPlaying = $state(false);
+
+  let micStatusText = $derived.by(() => {
+    if (!recordingEnabled) return '麥克風已關閉';
+    if (recordingFailed) return '麥克風無法啟用';
+    if (!recordingReady) return '正在啟用麥克風';
+    if (isVideoPlaying && isRecording) return '麥克風運作中';
+    if (isVideoPlaying) return '麥克風已就緒';
+    return '麥克風待機中';
+  });
+
+  let micStatusTone = $derived.by(() => {
+    if (recordingFailed) return 'text-red-600 dark:text-red-400';
+    if (isRecording) return 'text-emerald-600 dark:text-emerald-400';
+    return 'text-gray-600 dark:text-gray-300';
+  });
   
   // Check if recording is enabled
   let recordingEnabled = $derived($settings.recordingEnabled);
@@ -388,7 +404,23 @@
         </svg>
       {/if}
     </button>
-    <div class="text-2xl">{isRecording ? '🔴' : '🎤'}</div>
-    <div class="text-lg font-mono font-semibold">{formatTime(recordingDuration)}</div>
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <div class="text-2xl" aria-hidden="true">{isRecording ? '🔴' : '🎤'}</div>
+      <div class="text-lg font-mono font-semibold">{formatTime(recordingDuration)}</div>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <div class="flex-1 min-w-[120px] h-6 flex items-center justify-center">
+          <AudioVisualizer
+            height={24}
+            stream={recordingStream}
+            active={isVideoPlaying && recordingEnabled && recordingReady && !recordingFailed}
+            showControls={false}
+            responsive={true}
+          />
+        </div>
+        <span class={`text-xs whitespace-nowrap shrink-0 ${micStatusTone}`} role="status" aria-live="polite">
+          {micStatusText}
+        </span>
+      </div>
+    </div>
   </div>
 </div>
