@@ -140,7 +140,7 @@
                 </button>
                 <button 
                   class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition whitespace-nowrap"
-                  onclick={() => handleRemove(item.video.id)}
+                  onclick={() => handleRemove(item.id)}
                 >
                 ×
                 </button>
