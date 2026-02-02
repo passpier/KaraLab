@@ -3,6 +3,7 @@
   import { queue } from '$lib/stores/queue';
   import { playlists } from '$lib/stores/playlists';
   import { formatDuration, getThumbnailUrl } from '$lib/utils/youtube';
+  import { toast } from '$lib/stores/toast.svelte'; 
   import type { YouTubeVideo } from '$lib/types';
   
   interface Props {
@@ -26,6 +27,7 @@
   
   function handleAddToQueue() {
     queue.add(video);
+    toast.show('加入佇列成功', 'success');
   }
   
   function handleAddToPlaylist(playlistId: string) {

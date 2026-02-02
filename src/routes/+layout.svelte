@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import Navigation from '$lib/components/Navigation.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import { settings } from '$lib/stores/settings';
   import { onMount } from 'svelte';
 
@@ -21,6 +22,7 @@
 
 <div class="min-h-screen flex flex-col">
   <Navigation />
+  <Toast />
 
   <main class="flex-1">
     <slot />
